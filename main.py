@@ -16,7 +16,7 @@ def PandasFromUrl(url):
 
 data = PandasFromUrl(dataUrl)
 data.columns = ["f" + str(i) for i in range(len(data.columns))]  # prefix feature columns with "f"
-data['response'] = PandasFromUrl(labelUrl)[0]
+data['pass_fail'] = PandasFromUrl(labelUrl)[0]
 vendors = pd.read_json(vendorUrl).sort_index()
 df = data.merge(vendors, left_index=True, right_index=True).set_index('datetime')
 
