@@ -1,1 +1,6 @@
 *.db-journal
+.Rproj.user
+.idea/
+__pycache__/
+.RData
+.Rhistory
