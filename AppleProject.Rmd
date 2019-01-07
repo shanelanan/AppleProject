@@ -13,7 +13,7 @@ library(dplyr)
 
 ## Extract, Transform, and Load
 
-A python3 backend was developed to fetch all of the raw data sources and push them into a local Sqlite database.  This provides a clean and normalized interface for future analysis.
+A python3 backend was developed to fetch the raw data sources and push them into a local Sqlite database.  This provides a clean and normalized interface for future analyses.
 
 In a production environment:
   * Python calls would be scheduled via Unix crontab or Windows task scheduler
@@ -106,22 +106,22 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
 ```
 
 ## Fetch from Database
-You can also embed plots, for example:
+Since the data has already been normalized into Sqlite, a simple SELECT * statement can be used to pull the table into RAM.
 
-```{r get, echo=FALSE}
-
+In a production environment, this would be an ODBC, JDBC, REST API "GET", etc.
+```{r get}
 con <- dbConnect(RSQLite::SQLite(), "apple.db")
 df = dbGetQuery(con, "select * from sample") %>%
   mutate(INSERTED_ON = as.POSIXct(INSERTED_ON),
          MFG_DATE = as.POSIXct(MFG_DATE))
 dbDisconnect(con)
 
-head(df)
-tail(df)
+# show first 12 and last 12 columns, first 6 rows
+head(df[c(1:12,(ncol(df)-12):ncol(df))])
 ```
+
+
 
