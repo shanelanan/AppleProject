@@ -7,8 +7,6 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(DBI)
-library(dplyr)
 ```
 
 ## Extract, Transform, and Load
@@ -113,6 +111,8 @@ Since the data has already been normalized into Sqlite, a simple SELECT * statem
 
 In a production environment, this would be an ODBC, JDBC, REST API "GET", etc.
 ```{r get}
+library(DBI)
+library(dplyr)
 con <- dbConnect(RSQLite::SQLite(), "apple.db")
 df = dbGetQuery(con, "select * from sample") %>%
   mutate(INSERTED_ON = as.POSIXct(INSERTED_ON),
