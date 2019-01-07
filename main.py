@@ -30,7 +30,7 @@ data['PASS_FAIL'] = PandasFromUrl(labelUrl)[0]
 vendors = pd.read_json(vendorUrl).sort_index()
 df = data.merge(vendors, left_index=True, right_index=True)
 df.rename(index=str, columns=newCols, inplace=True)
-
+df['ID'] = list(range(len(df)))
 
 con = sqlite3.connect("apple.db")
 dfUpload(df, con, "SAMPLE", clearTable=True)

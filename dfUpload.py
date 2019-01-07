@@ -8,7 +8,7 @@ def dfUpload(df, con, table, timeStamp=True, clearTable=False, debug=False):
         df['INSERTED_ON'] = datetime.now()
 
     df = df.where(pd.notnull(df), None)  # convert NaN to None, for SQL Nulls
-    # just to fix pd.NaT to insert as NULLS in Oracle
+    # just to fix pd.NaT to insert as NULLS
     for col in df.columns:
         if df[col].dtype.kind == 'M':
             df[col] = df[col].astype(object).where(df[col].notnull(), None)
