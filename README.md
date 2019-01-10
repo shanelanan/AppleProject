@@ -1,4 +1,4 @@
-# Title: SECOM Data Set
+Title: SECOM Data Set
 
 Abstract: Data from a semi-conductor manufacturing process
 	
@@ -92,3 +92,7 @@ the technique applied.
 The data is represented in a raw text file each line representing an individual 
 example and the features seperated by spaces. The null values are represented by 
 the 'NaN' value as per MatLab.
+
+
+
+
