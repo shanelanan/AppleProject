@@ -32,8 +32,8 @@ printWideDataFrame(df, 20)
 
 # impute NAs in dataframe with column medians
 for(col in names(df)) {
-  # feature columns only (they start with "F")
-  if(substr(col,1,1) == "F"){
+  # feature columns only (they start with "F" and the other digits are numeric)
+  if((substring(col,1,1) == "F") && !is.na(as.numeric(substring(col,2)))) {
     df[is.na(df[,col]), col] <- median(df[,col], na.rm = TRUE)
   }
 }
