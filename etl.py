@@ -74,7 +74,7 @@ def main():
     df['ID'] = list(range(len(df)))
 
     print("Connecting to Sqlite...")
-    con = sqlite3.connect("apple.db")
+    con = sqlite3.connect("warehouse.db")
     print("Clearing table and inserting records...")
     dfUpload(df, con, "SAMPLE", clearTable=True)
     print("Disconnecting from Sqlite...")

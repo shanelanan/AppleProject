@@ -11,7 +11,7 @@ printWideDataFrame <- function(df, n){
 }
 
 # connect to db, fetch table into RAM, disconnect from db
-con <- dbConnect(RSQLite::SQLite(), "apple.db")
+con <- dbConnect(RSQLite::SQLite(), "warehouse.db")
 dfRaw = dbGetQuery(con, "select * from sample")
 dbDisconnect(con)
 
