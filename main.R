@@ -9,6 +9,7 @@ library(ROCR)
 library(extraTrees)
 library(lubridate)
 library(plotly)
+library(ggplot2)
 
 rm(list = ls()) # clear all data
 try(dev.off(),silent=TRUE) # clear all plots
@@ -84,7 +85,7 @@ df_orig %>%
     barmode="stack",
     title='Semi-Conductor Production Volume vs. Time (Cumulative)'
     )
-  
+
 
 # massage for statistics
 df_stats <- df_orig %>% 
@@ -92,8 +93,7 @@ df_stats <- df_orig %>%
   select(-c(ID, INSERTED_ON, MFG_DATE, MAT_VENDOR, PART_VENDOR, SIL_VENDOR, ADHS_VENDOR, SOP_VENDOR))  # drop columns
 
 # preview dataframe
-printWideDataFrame(df, 20)
-
+printWideDataFrame(df_stats, 20)
 
 ##########################################################
 # Model 1: Logistic Regression
@@ -182,7 +182,7 @@ accuracy = matrix(data=NA,nrow=n,ncol=2)
 precision = matrix(data=NA,nrow=n,ncol=2)
 cutoff = 0.50
 
-pdf(file='./docs/Rplots.pdf',width=10,height=7.5)  # begin pdf writer
+pdf(file='./docs/ROCs.pdf',width=10,height=7.5)  # begin pdf writer
 
 # Perform 5 fold cross validation
 for(i in 1:n){
@@ -272,6 +272,28 @@ if(precision_test$p.value>0.05){
 }
 
 
+##########################################################
+# Important Variables
+##########################################################
+
+pdf(file='./docs/ImportantVariables.pdf',width=10,height=7.5)  # begin pdf writer
+
+for(name in sort(names(m1_base$coefficients)[-1])){
+  p <- df_orig %>%
+    fastDummies::dummy_cols() %>%  # add dummy variables for all string columns
+    mutate(PASS_FAIL = as.factor(ifelse(PASS_FAIL==1,"PASS","FAIL"))) %>%
+    ggplot(aes_string(x = "MFG_DATE", y = name)) +
+    geom_point(alpha = 0.4, aes(colour = PASS_FAIL)) +
+    # scale_color_viridis(discrete = TRUE, option = "magma") + 
+    scale_color_manual(values = c("FAIL" = "red", "PASS" = "black")) +
+    guides(colour = guide_legend(override.aes = list(alpha = 1, size = 2))) +
+    # coord_equal() +
+    ggtitle(paste("Variable:",name,"vs. Time")) +
+    xlab("Manufacturing Date") +
+    ylab("Value")
+  print(p)
+}
+dev.off()
 
 
 
