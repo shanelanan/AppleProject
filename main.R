@@ -1,3 +1,7 @@
+##########################################################
+# Global
+##########################################################
+
 library(DBI)
 library(dplyr)
 library(broom)
@@ -7,13 +11,23 @@ library(extraTrees)
 rm(list = ls()) # clear all data
 try(dev.off(),silent=TRUE) # clear all plots
 
-# system("python etl.py")  # call python ETL script
-pdf(file='./docs/Rplots.pdf',width=10,height=7.5)  # begin pdf writer
-
 # helper function to print huge dataframe
 printWideDataFrame <- function(df, n){
   head(df[c(1:n,(ncol(df)-n):ncol(df))])
 }
+
+
+##########################################################
+# Run ETL script
+##########################################################
+
+# system("python etl.py")
+
+
+##########################################################
+# Fetch from Sqlite and Massage
+##########################################################
+
 
 # connect to db, fetch table into RAM, disconnect from db
 con <- dbConnect(RSQLite::SQLite(), "warehouse.db")
@@ -25,7 +39,7 @@ dbDisconnect(con)
 printWideDataFrame(df_orig, 20)
 
 # massage for statistics
-df <- df_orig %>% 
+df_stats <- df_orig %>% 
   mutate(PASS_FAIL = ifelse(PASS_FAIL==1,0,1)) %>%  # 1 = pass, 0 = fail
   fastDummies::dummy_cols() %>%  # add dummy variables for all string columns
   select(-c(ID, INSERTED_ON, MFG_DATE, MAT_VENDOR, PART_VENDOR, SIL_VENDOR, ADHS_VENDOR, SOP_VENDOR))  # drop columns
@@ -40,7 +54,7 @@ printWideDataFrame(df, 20)
 ##########################################################
 
 # create copy
-df1 <- df
+df1 <- df_stats
 
 # impute NAs in dataframe with column medians
 for(col in names(df1)) {
@@ -64,10 +78,10 @@ printWideDataFrame(df1, 20)
 # 
 # # compare methods
 # if(m1_fwd$aic<m1_both$aic){
-#   print("Forward selection chosen")
+#   print("Step forward selection chosen")
 #   m1_varModel = m1_fwd
 # }else{
-#   print("Both selection chosen")
+#   print("Step both selection chosen")
 #   m1_varModel = m1_both
 # }
 # m1_formula <- m1_varModel$formula
@@ -94,7 +108,7 @@ summary(m1_base)
 ##########################################################
 
 # create copy
-df2 <- df
+df2 <- df_stats
 
 # preview dataframe
 printWideDataFrame(df2, 20)
@@ -102,12 +116,15 @@ printWideDataFrame(df2, 20)
 # run model and summarize
 m2_base = extraTrees(df2 %>% select(-PASS_FAIL),df2$PASS_FAIL,numRandomCuts=1,na.action="fuse")
 m2_base
+# extraTrees does not have a variable importance function
 
 
 ##########################################################
 # Cross Validation
 ##########################################################
 
+# create copy
+df <- df_stats
 
 n = 5  # number of folds
 df = df[sample(nrow(df)),]  # Randomly shuffle the data
@@ -117,6 +134,8 @@ folds = cut(seq(1,nrow(df)),breaks=n,labels=FALSE)  # Create 5 equally size fold
 accuracy = matrix(data=NA,nrow=n,ncol=2)
 precision = matrix(data=NA,nrow=n,ncol=2)
 cutoff = 0.50
+
+pdf(file='./docs/Rplots.pdf',width=10,height=7.5)  # begin pdf writer
 
 # Perform 5 fold cross validation
 for(i in 1:n){
@@ -174,7 +193,10 @@ for(i in 1:n){
 
 dev.off()  # close pdf writer
 
-## TODO, INFER ALL CONCLUSIONS
+
+##########################################################
+# Conclusions
+##########################################################
 
 # defined as null hypothesis: m1-m2=0
 accuracy_test = t.test(accuracy[,1],accuracy[,2],conf.level=0.95,paired=T)
@@ -182,11 +204,26 @@ precision_test = t.test(precision[,1],precision[,2],conf.level=0.95,paired=T)
 
 accuracy
 accuracy_test
-# Model 1 & 2 are not significantly more or less accurate than one another.
+
+if(accuracy_test$p.value>0.05){
+  print("Model 1 and Model 2 accuracies are not significantly different.")
+}else if(mean(accuracy[,1])>mean(accuracy[,2])){
+  print("Model 1 is statistically more accurate than Model 2.")
+}else{
+  print("Model 2 is statistically more accurate than Model 1.")
+}
 
 precision
 precision_test
-# Model 2 is more precise than Model 1.
+
+if(precision_test$p.value>0.05){
+  print("Model 1 and Model 2 precisions are not significantly different.")
+}else if(mean(precision[,1])>mean(precision[,2])){
+  print("Model 1 is statistically more precise than Model 2.")
+}else{
+  print("Model 2 is statistically more precise than Model 1.")
+}
+
 
 
 

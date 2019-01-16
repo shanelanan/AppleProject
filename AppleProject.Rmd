@@ -11,11 +11,16 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Extract, Transform, and Load
 
-A python3 backend was developed to fetch the raw data sources and push them into a local Sqlite database.  This provides a clean and normalized interface for future analyses.
+A Python 3.7 backend was developed to:
+- Pull the data from its sources
+- Prepare for a load into Sqlite
+- Commit records and report upload status
 
-In a production environment:
-  * Python calls would be scheduled via Unix crontab or Windows task scheduler
-  * Sqlite would be replaced by a server-based platform, like Oracle, SQL Server, MySQL, etc.
+
+In a production environment, a robust approach would be:
+- Use an enterprise database as a datawarehouse like Oracle, SQL Server, MySQL, etc.
+- Schedule the script in Unix via /etc/crontab
+
 
 ```{python}
 #!/usr/bin/python3
@@ -94,17 +99,18 @@ def main():
     df['ID'] = list(range(len(df)))
 
     print("Connecting to Sqlite...")
-    con = sqlite3.connect("apple.db")
+    con = sqlite3.connect("warehouse.db")
     print("Clearing table and inserting records...")
     dfUpload(df, con, "SAMPLE", clearTable=True)
     print("Disconnecting from Sqlite...")
     con.close()
     print("Done!")
-
-
+    
+    
 if __name__ == '__main__':
     main()
 ```
+
 
 ## Fetch from Database
 Since the data has already been normalized into Sqlite, a simple SELECT * statement can be used to pull the table into RAM.
