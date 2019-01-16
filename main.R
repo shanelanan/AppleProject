@@ -7,6 +7,8 @@ library(dplyr)
 library(broom)
 library(ROCR)
 library(extraTrees)
+library(lubridate)
+library(plotly)
 
 rm(list = ls()) # clear all data
 try(dev.off(),silent=TRUE) # clear all plots
@@ -32,15 +34,60 @@ printWideDataFrame <- function(df, n){
 # connect to db, fetch table into RAM, disconnect from db
 con <- dbConnect(RSQLite::SQLite(), "warehouse.db")
 df_orig <- dbGetQuery(con, "select * from sample") %>%
-  mutate(INSERTED_ON = as.POSIXct(INSERTED_ON), MFG_DATE = as.POSIXct(MFG_DATE))
+  mutate(
+    INSERTED_ON = as.POSIXct(INSERTED_ON),
+    MFG_DATE = as.POSIXct(MFG_DATE),
+    PASS_FAIL = ifelse(PASS_FAIL==1,0,1))
 dbDisconnect(con)
 
 # preview dataframe
 printWideDataFrame(df_orig, 20)
 
+# mfg volume vs time
+df_orig %>%
+  group_by(MFG_DATE = floor_date(MFG_DATE, "day")) %>%
+  summarize(
+    QTY=n(),
+    QTY_PASS = sum(PASS_FAIL==1),
+    QTY_FAIL = sum(PASS_FAIL==0)
+    ) %>%
+    plot_ly(x = ~MFG_DATE, y = ~QTY_PASS, name = "Pass", type = "bar") %>%
+    add_trace(y = ~QTY_FAIL, name = 'Fail') %>%
+    layout(
+      xaxis=list(title='Manufacturing Date'),
+      yaxis=list(title='Volume'),
+      barmode="stack",
+      title='Semi-Conductor Production Volume vs. Time')
+
+# mfg volume vs time (cumulative)
+df_orig %>%
+  group_by(MFG_DATE = floor_date(MFG_DATE, "day")) %>%
+  summarize(
+    QTY = n(),
+    QTY_PASS = sum(PASS_FAIL==1),
+    QTY_FAIL = sum(PASS_FAIL==0)
+  ) %>%
+  mutate(
+    QTY = cumsum(QTY),
+    QTY_PASS = cumsum(QTY_PASS),
+    QTY_FAIL = cumsum(QTY_FAIL),
+    PERC_PASS = QTY_PASS/QTY
+  ) %>%
+  plot_ly() %>%
+  add_trace(x = ~MFG_DATE, y = ~QTY_PASS, name = "Pass", type = "bar", yaxis = 'y1') %>%
+  add_trace(x = ~MFG_DATE, y = ~QTY_FAIL, name = 'Fail', type = "bar", yaxis = 'y1') %>%
+  add_trace(x = ~MFG_DATE, y = ~PERC_PASS, type = 'scatter', mode = 'lines', name = 'Yield %', yaxis = 'y2') %>%
+  layout(
+    xaxis=list(title='Manufacturing Date'),
+    yaxis=list(side='left',title='Volume (Cumulative)',showgrid=FALSE,zeroline=FALSE),
+    yaxis2=list(side='right',overlaying="y",title='Yield %',showgrid=FALSE,zeroline=FALSE,tickformat="%"),
+    barmode="stack",
+    title='Semi-Conductor Production Volume vs. Time (Cumulative)'
+    )
+  
+
 # massage for statistics
 df_stats <- df_orig %>% 
-  mutate(PASS_FAIL = ifelse(PASS_FAIL==1,0,1)) %>%  # 1 = pass, 0 = fail
   fastDummies::dummy_cols() %>%  # add dummy variables for all string columns
   select(-c(ID, INSERTED_ON, MFG_DATE, MAT_VENDOR, PART_VENDOR, SIL_VENDOR, ADHS_VENDOR, SOP_VENDOR))  # drop columns
 

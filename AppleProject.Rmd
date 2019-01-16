@@ -223,9 +223,11 @@ F511 + F545 + F470 + F410 + F419 + F418 + F32 + SIL_VENDOR_ccc +
 SOP_VENDOR_aaa + F320 + F66 + F321 + F94 + F132 + F575"
 )
 
+
+
 m1_base = glm(m1_formula, data=df1, family=binomial(), control = list(maxit = 50))
 summary(m1_base)
-````
+```
 
 
 ## Model 2: Extremely Random Trees
