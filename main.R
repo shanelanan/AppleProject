@@ -7,8 +7,8 @@ library(extraTrees)
 rm(list = ls()) # clear all data
 try(dev.off(),silent=TRUE) # clear all plots
 
-# system("python etl.py")
-pdf(file='./docs/Rplots.pdf',width=10,height=7.5)
+# system("python etl.py")  # call python ETL script
+pdf(file='./docs/Rplots.pdf',width=10,height=7.5)  # begin pdf writer
 
 # helper function to print huge dataframe
 printWideDataFrame <- function(df, n){
@@ -24,16 +24,23 @@ dbDisconnect(con)
 # preview dataframe
 printWideDataFrame(df_orig, 20)
 
-
-##########################################################
-# Model 1: Logistic Regression
-##########################################################
-
-# massage dataframe
-df1 <- df_orig %>% 
+# massage for statistics
+df <- df_orig %>% 
   mutate(PASS_FAIL = ifelse(PASS_FAIL==1,0,1)) %>%  # 1 = pass, 0 = fail
   fastDummies::dummy_cols() %>%  # add dummy variables for all string columns
   select(-c(ID, INSERTED_ON, MFG_DATE, MAT_VENDOR, PART_VENDOR, SIL_VENDOR, ADHS_VENDOR, SOP_VENDOR))  # drop columns
+
+# preview dataframe
+printWideDataFrame(df, 20)
+
+
+##########################################################
+# Model 1: Logistic Regression
+# Starting with a simple approach
+##########################################################
+
+# create copy
+df1 <- df
 
 # impute NAs in dataframe with column medians
 for(col in names(df1)) {
@@ -46,93 +53,80 @@ for(col in names(df1)) {
 # preview dataframe
 printWideDataFrame(df1, 20)
 
-# initialize models
-m1_full = glm(PASS_FAIL ~ ., data=df1, family=binomial())
-m1_null = glm(PASS_FAIL ~ 1, data=df1, family=binomial())
-
-# down-select variables
-m1_fwd = step(m1_null, scope=list(lower=m1_null, upper=m1_full), direction="forward")
-# m1_bwd = step(m1_full, direction="backward"), backward not a good choice for high dimensionality problem
-m1_both = step(m1_null, scope = list(upper=m1_full), direction="both")
-
-# compare methods
-if(m1_fwd$aic<m1_both$aic){
-  print("Forward selection chosen")
-  m1_varModel = m1_fwd
-}else{
-  print("Both selection chosen")
-  m1_varModel = m1_both
-}
-
-m1_formula <- m1_varModel$formula
+# # initialize models
+# m1_full = glm(PASS_FAIL ~ ., data=df1, family=binomial(), control = list(maxit = 50))
+# m1_null = glm(PASS_FAIL ~ 1, data=df1, family=binomial(), control = list(maxit = 50))
+# 
+# # down-select variables
+# # m1_bwd = step(m1_full, direction="backward"), backward not a good choice for high dimensionality problem
+# m1_fwd = step(m1_null, scope=list(lower=m1_null, upper=m1_full), direction="forward")
+# m1_both = step(m1_null, scope = list(upper=m1_full), direction="both")
+# 
+# # compare methods
+# if(m1_fwd$aic<m1_both$aic){
+#   print("Forward selection chosen")
+#   m1_varModel = m1_fwd
+# }else{
+#   print("Both selection chosen")
+#   m1_varModel = m1_both
+# }
+# m1_formula <- m1_varModel$formula
+# m1_formula
 
 # # BOTH SELECTED, TODO
-# m1_formula <- 
-# "PASS_FAIL ~ SIL_VENDOR_eee + F103 + F59 + F21 + F73 + F428 + 
-#     F569 + F64 + F75 + F129 + F433 + F365 + F9 + F443 + F473 + 
-# F500 + F368 + F488 + SOP_VENDOR_ggg + F411 + F476 + F38 + 
-# F87 + F104 + F484 + F349 + F84 + F72 + F56 + F554 + F131 + 
-# F511 + F545 + F470 + F410 + F419 + F418 + F32 + SIL_VENDOR_ccc + 
-# SOP_VENDOR_aaa + F320 + F66 + F321 + F94 + F132 + F575"
+m1_formula <- as.formula(
+"PASS_FAIL ~ SIL_VENDOR_eee + F103 + F59 + F21 + F73 + F428 +
+F569 + F64 + F75 + F129 + F433 + F365 + F9 + F443 + F473 +
+F500 + F368 + F488 + SOP_VENDOR_ggg + F411 + F476 + F38 +
+F87 + F104 + F484 + F349 + F84 + F72 + F56 + F554 + F131 +
+F511 + F545 + F470 + F410 + F419 + F418 + F32 + SIL_VENDOR_ccc +
+SOP_VENDOR_aaa + F320 + F66 + F321 + F94 + F132 + F575"
+)
 
-m1_base = glm(as.formula(m1_formula), data=df1, family=binomial())
+m1_base = glm(m1_formula, data=df1, family=binomial(), control = list(maxit = 50))
+summary(m1_base)
 
 
 ##########################################################
 # Model 2: Extremely Random Trees
+# Handles NAs gracefully
+# Handles noisey data and high dimensionality
 ##########################################################
 
-# # massage dataframe
-# df2 <- df_orig %>% 
-#   mutate(PASS_FAIL = ifelse(PASS_FAIL==1,0,1)) %>%  # 1 = pass, 0 = fail
-#   select(-c(ID, INSERTED_ON, MFG_DATE))  # drop columns
-
-df2 <- df_orig %>%
-  mutate(PASS_FAIL = ifelse(PASS_FAIL==1,0,1)) %>%  # 1 = pass, 0 = fail
-  fastDummies::dummy_cols() %>%  # add dummy variables for all string columns
-  select(-c(ID, INSERTED_ON, MFG_DATE, MAT_VENDOR, PART_VENDOR, SIL_VENDOR, ADHS_VENDOR, SOP_VENDOR))  # drop columns
-
-# df2 <- df_orig %>% 
-#   mutate(
-#     PASS_FAIL = ifelse(PASS_FAIL==1,0,1),  # 1 = pass, 0 = fail
-#     MAT_VENDOR = as.factor(MAT_VENDOR),
-#     PART_VENDOR = as.factor(PART_VENDOR),
-#     SIL_VENDOR = as.factor(SIL_VENDOR),
-#     ADHS_VENDOR = as.factor(ADHS_VENDOR),
-#     SOP_VENDOR = as.factor(SOP_VENDOR)
-#     ) %>% 
-#   select(-c(ID, INSERTED_ON, MFG_DATE))  # drop columns
+# create copy
+df2 <- df
 
 # preview dataframe
 printWideDataFrame(df2, 20)
 
-m2_base = extraTrees(df2[,-PASS_FAIL],df2$PASS_FAIL,numRandomCuts=1,na.action="fuse")
+# run model and summarize
+m2_base = extraTrees(df2 %>% select(-PASS_FAIL),df2$PASS_FAIL,numRandomCuts=1,na.action="fuse")
+m2_base
 
 
 ##########################################################
 # Cross Validation
 ##########################################################
 
-df = df1
 
-n = 5 #number of folds
-df = df[sample(nrow(df)),] #Randomly shuffle the data
-folds = cut(seq(1,nrow(df)),breaks=n,labels=FALSE) #Create 5 equally size folds
+n = 5  # number of folds
+df = df[sample(nrow(df)),]  # Randomly shuffle the data
+folds = cut(seq(1,nrow(df)),breaks=n,labels=FALSE)  # Create 5 equally size folds
 
-#create empty matrix for accuracy and precision
+# create empty matrix for accuracy and precision
 accuracy = matrix(data=NA,nrow=n,ncol=2)
 precision = matrix(data=NA,nrow=n,ncol=2)
 cutoff = 0.50
 
-#Perform 5 fold cross validation
+# Perform 5 fold cross validation
 for(i in 1:n){
-  #Segment the data by fold using the which() function 
+  # Segment the data by fold using the which() function 
   testIndexes = which(folds==i,arr.ind=TRUE)
   testData = df[testIndexes, ]
   trainData = df[-testIndexes, ]
   
   # model 1: logistic regression  
-  m1 = glm(as.formula(m1_formula),data=trainData,family='binomial')#,control=list(maxit=50))
+  m1 = glm(m1_formula,data=trainData,family='binomial',control=list(maxit=50))
   p1 = predict(m1,newdata=testData,type='response')
   pr1 = prediction(p1,testData$PASS_FAIL)
   prf1 = performance(pr1,measure="tpr",x.measure="fpr")
@@ -141,8 +135,8 @@ for(i in 1:n){
   auc1 = performance(pr1,measure="auc")
   
   # model 2: extremely random forest
-  m2 = extraTrees(trainData[,-PASS_FAIL],trainData$PASS_FAIL,numRandomCuts=1,na.action="fuse")
-  p2 = predict(m2,testData %>% select(-c(PASS_FAIL)))
+  m2 = extraTrees(trainData %>% select(-PASS_FAIL),trainData$PASS_FAIL,numRandomCuts=1,na.action="fuse")
+  p2 = predict(m2,testData %>% select(-PASS_FAIL))
   pr2 = prediction(p2,testData$PASS_FAIL)
   prf2 = performance(pr2,measure="tpr",x.measure="fpr")
   prec2 = performance(pr2,measure="prec")
@@ -178,6 +172,8 @@ for(i in 1:n){
   
 }
 
+dev.off()  # close pdf writer
+
 ## TODO, INFER ALL CONCLUSIONS
 
 # defined as null hypothesis: m1-m2=0
@@ -192,7 +188,7 @@ precision
 precision_test
 # Model 2 is more precise than Model 1.
 
-dev.off()
+
 
 
 
