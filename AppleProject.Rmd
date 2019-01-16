@@ -3,8 +3,8 @@ title: "Apple Case Study"
 author: "Shane Lanan"
 date: "January 18, 2019"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -124,6 +124,9 @@ library(dplyr)
 library(broom)
 library(ROCR)
 library(extraTrees)
+library(lubridate)
+library(ggplot2)
+library(plotly)
 
 rm(list = ls()) # clear all data
 try(dev.off(),silent=TRUE) # clear all plots
@@ -145,7 +148,10 @@ In a production environment:
 # connect to db, fetch table into RAM, disconnect from db
 con <- dbConnect(RSQLite::SQLite(), "warehouse.db")
 df_orig <- dbGetQuery(con, "select * from sample") %>%
-  mutate(INSERTED_ON = as.POSIXct(INSERTED_ON), MFG_DATE = as.POSIXct(MFG_DATE))
+  mutate(
+    INSERTED_ON = as.POSIXct(INSERTED_ON),
+    MFG_DATE = as.POSIXct(MFG_DATE),
+    PASS_FAIL = ifelse(PASS_FAIL==1,0,1))
 dbDisconnect(con)
 
 # preview dataframe
@@ -162,7 +168,6 @@ Using dplyr commands to:
 ```{r clean}
 # massage for statistics
 df_stats <- df_orig %>% 
-  mutate(PASS_FAIL = ifelse(PASS_FAIL==1,0,1)) %>%  # 1 = pass, 0 = fail
   fastDummies::dummy_cols() %>%  # add dummy variables for all string columns
   select(-c(ID, INSERTED_ON, MFG_DATE, MAT_VENDOR, PART_VENDOR, SIL_VENDOR, ADHS_VENDOR, SOP_VENDOR))  # drop columns
 
@@ -170,6 +175,54 @@ df_stats <- df_orig %>%
 printWideDataFrame(df_stats, 20)
 ```
 
+## Exploratory Data Analysis
+Using javascript wrappers, html page can be used to show interactive volumes and yields over the given time period.
+
+In a production environment, this would be replaced by a standalone web service, mobile app, or other internal facing customer.
+
+```{r eda}
+# mfg volume vs time
+df_orig %>%
+  group_by(MFG_DATE = floor_date(MFG_DATE, "day")) %>%
+  summarize(
+    QTY=n(),
+    QTY_PASS = sum(PASS_FAIL==1),
+    QTY_FAIL = sum(PASS_FAIL==0)
+    ) %>%
+    plot_ly(x = ~MFG_DATE, y = ~QTY_PASS, name = "Pass", type = "bar") %>%
+    add_trace(y = ~QTY_FAIL, name = 'Fail') %>%
+    layout(
+      xaxis=list(title='Manufacturing Date'),
+      yaxis=list(title='Volume'),
+      barmode="stack",
+      title='Semi-Conductor Production Volume vs. Time')
+
+# mfg volume vs time (cumulative)
+df_orig %>%
+  group_by(MFG_DATE = floor_date(MFG_DATE, "day")) %>%
+  summarize(
+    QTY = n(),
+    QTY_PASS = sum(PASS_FAIL==1),
+    QTY_FAIL = sum(PASS_FAIL==0)
+  ) %>%
+  mutate(
+    QTY = cumsum(QTY),
+    QTY_PASS = cumsum(QTY_PASS),
+    QTY_FAIL = cumsum(QTY_FAIL),
+    PERC_PASS = QTY_PASS/QTY
+  ) %>%
+  plot_ly() %>%
+  add_trace(x = ~MFG_DATE, y = ~QTY_PASS, name = "Pass", type = "bar", yaxis = 'y1') %>%
+  add_trace(x = ~MFG_DATE, y = ~QTY_FAIL, name = 'Fail', type = "bar", yaxis = 'y1') %>%
+  add_trace(x = ~MFG_DATE, y = ~PERC_PASS, type = 'scatter', mode = 'lines', name = 'Yield %', yaxis = 'y2') %>%
+  layout(
+    xaxis=list(title='Manufacturing Date'),
+    yaxis=list(side='left',title='Volume (Cumulative)',showgrid=FALSE,zeroline=FALSE),
+    yaxis2=list(side='right',overlaying="y",title='Yield %',showgrid=FALSE,zeroline=FALSE,tickformat="%"),
+    barmode="stack",
+    title='Semi-Conductor Production Volume vs. Time (Cumulative)'
+    )
+```
 
 ## Model 1: Logistic Regression
 Starting with a simple approach due to binary response variable.
@@ -322,6 +375,7 @@ for(i in 1:n){
 dev.off()  # close pdf writer
 ```
 
+
 ## Conclusion
 
 ```{r conclusion}
@@ -350,4 +404,27 @@ if(precision_test$p.value>0.05){
 }else{
   print("Model 2 is statistically more precise than Model 1.")
 }
+```
+
+
+## Important Variables
+
+The time series graphs of all the important variables can be found here ./docs/ImportantVariables.pdf
+
+```{r important}
+pdf(file='./docs/ImportantVariables.pdf',width=10,height=7.5)  # begin pdf writer
+for(name in sort(names(m1_base$coefficients)[-1])){
+  p <- df_orig %>%
+    fastDummies::dummy_cols() %>%  # add dummy variables for all string columns
+    mutate(PASS_FAIL = as.factor(ifelse(PASS_FAIL==1,"PASS","FAIL"))) %>%
+    ggplot(aes_string(x = "MFG_DATE", y = name)) +
+    geom_point(alpha = 0.4, aes(colour = PASS_FAIL)) +
+    scale_color_manual(values = c("FAIL" = "red", "PASS" = "black")) +
+    guides(colour = guide_legend(override.aes = list(alpha = 1, size = 2))) +
+    ggtitle(paste("Variable:",name,"vs. Time")) +
+    xlab("Manufacturing Date") +
+    ylab("Value")
+  print(p)
+}
+dev.off()
 ```

@@ -44,6 +44,20 @@ dbDisconnect(con)
 # preview dataframe
 printWideDataFrame(df_orig, 20)
 
+# massage for statistics
+df_stats <- df_orig %>% 
+  fastDummies::dummy_cols() %>%  # add dummy variables for all string columns
+  select(-c(ID, INSERTED_ON, MFG_DATE, MAT_VENDOR, PART_VENDOR, SIL_VENDOR, ADHS_VENDOR, SOP_VENDOR))  # drop columns
+
+# preview dataframe
+printWideDataFrame(df_stats, 20)
+
+
+##########################################################
+# Data Exploration
+##########################################################
+
+
 # mfg volume vs time
 df_orig %>%
   group_by(MFG_DATE = floor_date(MFG_DATE, "day")) %>%
@@ -87,13 +101,7 @@ df_orig %>%
     )
 
 
-# massage for statistics
-df_stats <- df_orig %>% 
-  fastDummies::dummy_cols() %>%  # add dummy variables for all string columns
-  select(-c(ID, INSERTED_ON, MFG_DATE, MAT_VENDOR, PART_VENDOR, SIL_VENDOR, ADHS_VENDOR, SOP_VENDOR))  # drop columns
 
-# preview dataframe
-printWideDataFrame(df_stats, 20)
 
 ##########################################################
 # Model 1: Logistic Regression
