@@ -137,6 +137,8 @@ if __name__ == '__main__':
 
 ## Prepare Environment
 
+Preparing an R 3.5.2 environment for statistical analysis
+
 * Loading required libraries  
 * Clearing cache  
 * Defining a helper function  
