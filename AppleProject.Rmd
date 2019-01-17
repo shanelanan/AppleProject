@@ -1,14 +1,30 @@
 ---
-title: "Apple Case Study"
+title: "SECOM Case Study"
 author: "Shane Lanan"
 date: "January 18, 2019"
 output:
-  html_document: 
-    fig_height: 6
-    fig_width: 9
-    theme: spacelab
-  pdf_document: default
+  rmdformats::readthedown:
+    highlight: kate
 ---
+
+
+```{r knitr_init, echo=FALSE, cache=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+# options(max.print="150")
+opts_chunk$set(echo=TRUE,
+	             cache=FALSE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=200)
+```
+
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -148,7 +164,7 @@ printWideDataFrame <- function(df, n){
 ## Fetch from Database
 Since the data has already been normalized into Sqlite, a SELECT statement can be used to pull the table into RAM.
 
-In a production environment:  
+In a production environment: 
 
 * For ODBC/JDBC, pass connection credentials to the connection object  
 * For REST API "GET", call web service for request/response objects  
@@ -179,7 +195,8 @@ Using dplyr commands to:
 # massage for statistics
 df_stats <- df_orig %>% 
   fastDummies::dummy_cols() %>%  # add dummy variables for all string columns
-  select(-c(ID, INSERTED_ON, MFG_DATE, MAT_VENDOR, PART_VENDOR, SIL_VENDOR, ADHS_VENDOR, SOP_VENDOR))  # drop columns
+  select(-c(ID, INSERTED_ON, MFG_DATE, MAT_VENDOR,
+            PART_VENDOR, SIL_VENDOR, ADHS_VENDOR, SOP_VENDOR))  # drop columns
 
 # preview dataframe
 printWideDataFrame(df_stats, 15)
@@ -225,9 +242,9 @@ df_orig %>%
     PERC_PASS = QTY_PASS/QTY
   ) %>%
   plot_ly() %>%
-  add_trace(x = ~MFG_DATE, y = ~QTY_PASS, name = "Pass", type = "bar", yaxis = 'y1') %>%
-  add_trace(x = ~MFG_DATE, y = ~QTY_FAIL, name = 'Fail', type = "bar", yaxis = 'y1') %>%
-  add_trace(x = ~MFG_DATE, y = ~PERC_PASS, type = 'scatter', mode = 'lines', name = 'Yield %', yaxis = 'y2') %>%
+  add_trace(x=~MFG_DATE, y=~QTY_PASS, name="Pass", type="bar", yaxis='y1') %>%
+  add_trace(x=~MFG_DATE, y=~QTY_FAIL, name='Fail', type="bar", yaxis='y1') %>%
+  add_trace(x=~MFG_DATE, y=~PERC_PASS, type='scatter', mode='lines', name='Yield %', yaxis='y2') %>%
   layout(
     xaxis=list(title='Manufacturing Date'),
     yaxis=list(side='left',title='Volume (Cumulative)',showgrid=FALSE,zeroline=FALSE),
@@ -268,35 +285,35 @@ for(col in names(df1)) {
 # preview dataframe
 printWideDataFrame(df1, 20)
 
-# initialize models
-m1_full = glm(PASS_FAIL ~ ., data=df1, family=binomial(), control = list(maxit = 50))
-m1_null = glm(PASS_FAIL ~ 1, data=df1, family=binomial(), control = list(maxit = 50))
-
-# down-select variables
-# m1_bwd = step(m1_full, direction="backward"), backward not a good choice for high dimensionality problem
-m1_fwd = step(m1_null, scope=list(lower=m1_null, upper=m1_full), direction="forward")
-m1_both = step(m1_null, scope = list(upper=m1_full), direction="both")
-
-# compare methods
-if(m1_fwd$aic<m1_both$aic){
-  print("Step forward selection chosen")
-  m1_varModel = m1_fwd
-}else{
-  print("Step both selection chosen")
-  m1_varModel = m1_both
-}
-m1_formula <- m1_varModel$formula
-m1_formula
+# # initialize models
+# m1_full = glm(PASS_FAIL ~ ., data=df1, family=binomial(), control = list(maxit = 50))
+# m1_null = glm(PASS_FAIL ~ 1, data=df1, family=binomial(), control = list(maxit = 50))
+# 
+# # down-select variables
+# # m1_bwd = step(m1_full, direction="backward"), backward not a good choice for high dimensionality problem
+# m1_fwd = step(m1_null, scope=list(lower=m1_null, upper=m1_full), direction="forward")
+# m1_both = step(m1_null, scope = list(upper=m1_full), direction="both")
+# 
+# # compare methods
+# if(m1_fwd$aic<m1_both$aic){
+#   print("Step forward selection chosen")
+#   m1_varModel = m1_fwd
+# }else{
+#   print("Step both selection chosen")
+#   m1_varModel = m1_both
+# }
+# m1_formula <- m1_varModel$formula
+# m1_formula
 
 # This is the result, use this if you need to run this code faster
-# m1_formula <- as.formula(
-# "PASS_FAIL ~ SIL_VENDOR_eee + F103 + F59 + F21 + F73 + F428 +
-# F569 + F64 + F75 + F129 + F433 + F365 + F9 + F443 + F473 +
-# F500 + F368 + F488 + SOP_VENDOR_ggg + F411 + F476 + F38 +
-# F87 + F104 + F484 + F349 + F84 + F72 + F56 + F554 + F131 +
-# F511 + F545 + F470 + F410 + F419 + F418 + F32 + SIL_VENDOR_ccc +
-# SOP_VENDOR_aaa + F320 + F66 + F321 + F94 + F132 + F575"
-# )
+m1_formula <- as.formula(
+"PASS_FAIL ~ SIL_VENDOR_eee + F103 + F59 + F21 + F73 + F428 +
+F569 + F64 + F75 + F129 + F433 + F365 + F9 + F443 + F473 +
+F500 + F368 + F488 + SOP_VENDOR_ggg + F411 + F476 + F38 +
+F87 + F104 + F484 + F349 + F84 + F72 + F56 + F554 + F131 +
+F511 + F545 + F470 + F410 + F419 + F418 + F32 + SIL_VENDOR_ccc +
+SOP_VENDOR_aaa + F320 + F66 + F321 + F94 + F132 + F575"
+)
 
 m1_base = glm(m1_formula, data=df1, family=binomial(), control = list(maxit = 50))
 summary(m1_base)
