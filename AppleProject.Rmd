@@ -15,7 +15,7 @@ library(rmdformats)
 ## Global options
 # options(max.print="150")
 opts_chunk$set(echo=TRUE,
-	             cache=FALSE,
+	             cache=TRUE,
                prompt=FALSE,
                tidy=TRUE,
                comment=NA,
@@ -288,36 +288,15 @@ for(col in names(df1)) {
 printWideDataFrame(df1, 20)
 
 # initialize models
-m1_full = glm(PASS_FAIL ~ ., data=df1, family=binomial(), control = list(maxit = 50))
-m1_null = glm(PASS_FAIL ~ 1, data=df1, family=binomial(), control = list(maxit = 50))
+m1_full <- glm(PASS_FAIL ~ ., data=df1, family=binomial(), control = list(maxit = 50))
+m1_null <- glm(PASS_FAIL ~ 1, data=df1, family=binomial(), control = list(maxit = 50))
 
 # down-select variables
-# m1_bwd = step(m1_full, direction="backward"), not good for high dimensionality problem
-m1_fwd = step(m1_null, scope=list(lower=m1_null, upper=m1_full), direction="forward")
-m1_both = step(m1_null, scope = list(upper=m1_full), direction="both")
+# m1_bwd <- step(m1_full, direction="backward", trace=FALSE), not good for high dimensionality problem
+# m1_fwd <- step(m1_null, scope=list(lower=m1_null, upper=m1_full, trace=FALSE), direction="forward")  both has lower AIC
+# m1_both <- step(m1_null, scope = list(upper=m1_full), direction="both", trace=FALSE) best choice
 
-# compare methods
-if(m1_fwd$aic<m1_both$aic){
-  print("Step forward selection chosen")
-  m1_varModel = m1_fwd
-}else{
-  print("Step both selection chosen")
-  m1_varModel = m1_both
-}
-m1_formula <- m1_varModel$formula
-m1_formula
-
-# # This is the result, use this if you need to run this code faster
-# m1_formula <- as.formula(
-# "PASS_FAIL ~ SIL_VENDOR_eee + F103 + F59 + F21 + F73 + F428 +
-# F569 + F64 + F75 + F129 + F433 + F365 + F9 + F443 + F473 +
-# F500 + F368 + F488 + SOP_VENDOR_ggg + F411 + F476 + F38 +
-# F87 + F104 + F484 + F349 + F84 + F72 + F56 + F554 + F131 +
-# F511 + F545 + F470 + F410 + F419 + F418 + F32 + SIL_VENDOR_ccc +
-# SOP_VENDOR_aaa + F320 + F66 + F321 + F94 + F132 + F575"
-# )
-
-m1_base = glm(m1_formula, data=df1, family=binomial(), control = list(maxit = 50))
+m1_base <- step(m1_null, scope = list(upper=m1_full), direction="both", trace=FALSE)
 summary(m1_base)
 ```
 
@@ -386,7 +365,7 @@ for(i in 1:n){
   trainData = df[-testIndexes, ]
   
   # model 1: logistic regression  
-  m1 = glm(m1_formula,data=trainData,family='binomial',control=list(maxit=50))
+  m1 = glm(m1_both$formula,data=trainData,family='binomial',control=list(maxit=50))
   p1 = predict(m1,newdata=testData,type='response')
   pr1 = prediction(p1,testData$PASS_FAIL)
   prf1 = performance(pr1,measure="tpr",x.measure="fpr")
@@ -438,7 +417,7 @@ invisible(dev.off())  # close pdf writer
 
 ## Comparing Models
 
-A simple t-test can be used to compare models on accuracy and precision results.
+A t-test can be used to compare models on accuracy and precision results.
 
 ```{r conclusion}
 # defined as null hypothesis: m1-m2=0
@@ -499,6 +478,7 @@ options(warn=0)
 ## Future Work
 
 * Remove all convergence warnings from models
+* Penalize models for over-fitting
 * Tune existing model parameters
 * Research more models for high dimensionality and noisey data with low observations
 * Create an enterprise level solution
