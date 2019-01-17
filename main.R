@@ -12,7 +12,7 @@ library(plotly)
 library(ggplot2)
 
 rm(list = ls()) # clear all data
-try(dev.off(),silent=TRUE) # clear all plots
+try(invisible(dev.off()),silent=TRUE) # clear all plots
 
 # helper function to print huge dataframe
 printWideDataFrame <- function(df, n){
@@ -246,7 +246,7 @@ for(i in 1:n){
   
 }
 
-dev.off()  # close pdf writer
+invisible(dev.off())  # close pdf writer
 
 
 ##########################################################
@@ -301,7 +301,7 @@ for(name in sort(names(m1_base$coefficients)[-1])){
     ylab("Value")
   print(p)
 }
-dev.off()
+invisible(dev.off())
 
 
 

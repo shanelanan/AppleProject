@@ -3,7 +3,10 @@ title: "Apple Case Study"
 author: "Shane Lanan"
 date: "January 18, 2019"
 output:
-  html_document: default
+  html_document: 
+    fig_height: 6
+    fig_width: 9
+    theme: spacelab
   pdf_document: default
 ---
 
@@ -14,14 +17,14 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Extract, Transform, and Load
 
 A Python 3.7 backend was developed to:
-- Pull the data from its sources
-- Prepare for a load into Sqlite
-- Commit records and report upload status
+* Pull the data from its sources
+* Prepare for a load into Sqlite
+* Commit records and report upload status
 
 
 In a production environment:
-- Use an enterprise database like Oracle, SQL Server, MySQL, etc.
-- Schedule the script in Unix via /etc/crontab
+* Use an enterprise database like Oracle, SQL Server, MySQL, etc.
+* Schedule the script in Unix via /etc/crontab
 
 
 ```{python etl}
@@ -116,9 +119,11 @@ if __name__ == '__main__':
 
 ## Prepare Environment
 
-Loading required libraries, clearing cache, and defining a helper function
+* Loading required libraries
+* Clearing cache
+* Defining a helper function
 
-```{r global, results='hide'}
+```{r global, message=FALSE}
 library(DBI)
 library(dplyr)
 library(broom)
@@ -129,7 +134,7 @@ library(ggplot2)
 library(plotly)
 
 rm(list = ls()) # clear all data
-try(dev.off(),silent=TRUE) # clear all plots
+try(invisible(dev.off()),silent=TRUE) # clear all plots
 
 # helper function to print huge dataframe
 printWideDataFrame <- function(df, n){
@@ -137,12 +142,13 @@ printWideDataFrame <- function(df, n){
 }
 ```
 
+
 ## Fetch from Database
 Since the data has already been normalized into Sqlite, a SELECT statement can be used to pull the table into RAM.
 
 In a production environment:
 - For ODBC/JDBC, pass connection credentials to the connection object
-- For REST API "GET", call web service for response object
+- For REST API "GET", call web service for request/response objects
 
 ```{r get}
 # connect to db, fetch table into RAM, disconnect from db
@@ -155,7 +161,7 @@ df_orig <- dbGetQuery(con, "select * from sample") %>%
 dbDisconnect(con)
 
 # preview dataframe
-printWideDataFrame(df_orig, 20)
+printWideDataFrame(df_orig, 15)
 ```
 
 
@@ -172,7 +178,7 @@ df_stats <- df_orig %>%
   select(-c(ID, INSERTED_ON, MFG_DATE, MAT_VENDOR, PART_VENDOR, SIL_VENDOR, ADHS_VENDOR, SOP_VENDOR))  # drop columns
 
 # preview dataframe
-printWideDataFrame(df_stats, 20)
+printWideDataFrame(df_stats, 15)
 ```
 
 ## Exploratory Data Analysis
@@ -302,7 +308,10 @@ m2_base
 
 
 ## Cross Validation
-Run 5 fold cross validation for both models, generate all ROC graphs, and export to pdf.
+
+Perform 5 fold cross validation for both models and generate ROC graphs [here](./docs/ROCs.pdf)
+
+
 ```{r crossval}
 # create copy
 df <- df_stats
@@ -316,7 +325,7 @@ accuracy = matrix(data=NA,nrow=n,ncol=2)
 precision = matrix(data=NA,nrow=n,ncol=2)
 cutoff = 0.50
 
-pdf(file='./docs/Rplots.pdf',width=10,height=7.5)  # begin pdf writer
+pdf(file='./docs/ROCs.pdf',width=10,height=7.5)  # begin pdf writer
 
 # Perform 5 fold cross validation
 for(i in 1:n){
@@ -372,7 +381,7 @@ for(i in 1:n){
   
 }
 
-dev.off()  # close pdf writer
+invisible(dev.off())  # close pdf writer
 ```
 
 
@@ -409,7 +418,8 @@ if(precision_test$p.value>0.05){
 
 ## Important Variables
 
-The time series graphs of all the important variables can be found here ./docs/ImportantVariables.pdf
+The time series graphs of the important variables can be found here
+[here](./docs/ImportantVariables.pdf)
 
 ```{r important}
 pdf(file='./docs/ImportantVariables.pdf',width=10,height=7.5)  # begin pdf writer
@@ -421,10 +431,10 @@ for(name in sort(names(m1_base$coefficients)[-1])){
     geom_point(alpha = 0.4, aes(colour = PASS_FAIL)) +
     scale_color_manual(values = c("FAIL" = "red", "PASS" = "black")) +
     guides(colour = guide_legend(override.aes = list(alpha = 1, size = 2))) +
-    ggtitle(paste("Variable:",name,"vs. Time")) +
+    ggtitle(paste("Variable:",name)) +
     xlab("Manufacturing Date") +
     ylab("Value")
   print(p)
 }
-dev.off()
+invisible(dev.off())
 ```
