@@ -26,9 +26,18 @@ opts_knit$set(width=200)
 
 
 
+
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
+## Problem Statement
+
+A sample machine learning data set was provided to perform supervised learning on semi-conductor quality data.  The objective was to identify signals that are important in determining pass/fail yield in a manufacturing process.
+
+For more information regarding the problem statement is provided [here](./docs/Candidate_data_presentation.pdf).
+
 
 ## Extract, Transform, and Load
 
@@ -142,6 +151,7 @@ Preparing an R 3.5.2 environment for statistical analysis
 * Loading required libraries  
 * Clearing cache  
 * Defining a helper function  
+* Delete previous results if they exist
 
 ```{r global, message=FALSE}
 library(DBI)
@@ -160,6 +170,9 @@ try(invisible(dev.off()),silent=TRUE) # clear all plots
 printWideDataFrame <- function(df, n){
   head(df[c(1:n,(ncol(df)-n):ncol(df))])
 }
+
+if(file.exists("./docs/ROCs.pdf")) invisible(file.remove("./docs/ROCs.pdf"))
+if(file.exists("./docs/ImportantVariables.pdf")) invisible(file.remove("./docs/ImportantVariables.pdf"))
 ```
 
 
@@ -294,31 +307,18 @@ m1_full <- glm(PASS_FAIL ~ ., data=df1, family=binomial(), control = list(maxit 
 m1_null <- glm(PASS_FAIL ~ 1, data=df1, family=binomial(), control = list(maxit = 50))
 
 # down-select variables
-# m1_bwd <- step(m1_full, direction="backward", trace=FALSE)  # not good for high dimensionality problem
-m1_fwd <- step(m1_null, scope=list(lower=m1_null, upper=m1_full, trace=0), direction="forward")  # both has lower AIC
+# m1_bwd <- step(m1_full, direction="backward", trace=0)  # not good for high dimensionality problem
+m1_fwd <- step(m1_null, scope=list(lower=m1_null, upper=m1_full), direction="forward", trace=0)  # both has lower AIC
 m1_both <- step(m1_null, scope = list(upper=m1_full), direction="both", trace=0) # best choice
 
 if(m1_fwd$aic<m1_both$aic){
-  print("Forward selection used")
-  m1_base_formula = m1_fwd$formula
+  print("Forward direction used")
+  m1_base = m1_fwd
 }else{
-  print("Both selection used")
-  m1_base_formula = m1_both$formula
+  print("Both directions used")
+  m1_base = m1_both
 }
 
-print(m1_base_formula)
-
-# temp hard code
-# m1_base_formula <- as.formula(
-#   "PASS_FAIL ~ SIL_VENDOR_eee + F103 + F59 + F21 + F73 + F428 + 
-#      F569 + F64 + F75 + F129 + F433 + F365 + F9 + F443 + F473 + 
-#  F500 + F368 + F488 + SOP_VENDOR_ggg + F411 + F476 + F38 + 
-#  F87 + F104 + F484 + F349 + F84 + F72 + F56 + F554 + F131 + 
-#  F511 + F545 + F470 + F410 + F419 + F418 + F32 + SIL_VENDOR_ccc + 
-#  SOP_VENDOR_aaa + F320 + F66 + F321 + F94 + F132 + F575"
-# 
-# )
-m1_base <- glm(m1_base_formula, data=df1, family = binomial(), control = list(maxit=50))
 summary(m1_base)
 ```
 
